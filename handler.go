@@ -35,7 +35,7 @@ func (h *Handler) OnCreateStream(timestamp uint32, cmd *rtmpmsg.NetConnectionCre
 }
 
 func (h *Handler) OnPublish(_ *rtmp.StreamContext, timestamp uint32, cmd *rtmpmsg.NetStreamPublish) error {
-	log.Printf("OnPublish: %#v", cmd)
+	log.Printf("Recieving Stream: %#v", cmd.PublishingName)
 
 	// (example) Reject a connection when PublishingName is empty
 	if cmd.PublishingName == "" {
