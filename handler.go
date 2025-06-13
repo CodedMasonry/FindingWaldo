@@ -15,32 +15,37 @@ import (
 	rtmpmsg "github.com/yutopp/go-rtmp/message"
 )
 
-// Handler An RTMP connection handler
+// Handler An RTMP connection handler.
+//
+// Connections
 type Handler struct {
 	rtmp.DefaultHandler
 	flvFile *os.File
 	flvEnc  *flv.Encoder
 }
 
-func (h *Handler) OnServe(conn *rtmp.Conn) {
-}
+// Required to meet interface (Unused)
+func (h *Handler) OnServe(conn *rtmp.Conn) {}
 
+// Called when RTMP connection is established
 func (h *Handler) OnConnect(timestamp uint32, cmd *rtmpmsg.NetConnectionConnect) error {
 	log.Printf("New Connection")
 	return nil
 }
 
+// Required to meet interface (Unused)
 func (h *Handler) OnCreateStream(timestamp uint32, cmd *rtmpmsg.NetConnectionCreateStream) error {
 	return nil
 }
 
+// Client is requesting to send a stream, complete inital setup
 func (h *Handler) OnPublish(_ *rtmp.StreamContext, timestamp uint32, cmd *rtmpmsg.NetStreamPublish) error {
 	log.Printf("Recieving Stream: %#v", cmd.PublishingName)
 
 	// (example) Reject a connection when PublishingName is empty
-	if cmd.PublishingName == "" {
-		return errors.New("PublishingName is empty")
-	}
+	// if cmd.PublishingName == "" {
+	// 	return errors.New("PublishingName is empty")
+	// }
 
 	// Record streams as FLV!
 	os.MkdirAll("received", 0777)
@@ -67,6 +72,7 @@ func (h *Handler) OnPublish(_ *rtmp.StreamContext, timestamp uint32, cmd *rtmpms
 	return nil
 }
 
+// Metadata from stream
 func (h *Handler) OnSetDataFrame(timestamp uint32, data *rtmpmsg.NetStreamSetDataFrame) error {
 	r := bytes.NewReader(data.Payload)
 
@@ -87,6 +93,7 @@ func (h *Handler) OnSetDataFrame(timestamp uint32, data *rtmpmsg.NetStreamSetDat
 	return nil
 }
 
+// Audio from stream
 func (h *Handler) OnAudio(timestamp uint32, payload io.Reader) error {
 	var audio flvtag.AudioData
 	if err := flvtag.DecodeAudioData(payload, &audio); err != nil {
@@ -110,6 +117,7 @@ func (h *Handler) OnAudio(timestamp uint32, payload io.Reader) error {
 	return nil
 }
 
+// Video from stream. Frames are processed here
 func (h *Handler) OnVideo(timestamp uint32, payload io.Reader) error {
 	var video flvtag.VideoData
 	if err := flvtag.DecodeVideoData(payload, &video); err != nil {
@@ -148,6 +156,7 @@ func (h *Handler) OnVideo(timestamp uint32, payload io.Reader) error {
 	return nil
 }
 
+// Cleanup when connection closes
 func (h *Handler) OnClose() {
 	log.Printf("Connection Closed")
 
@@ -180,7 +189,7 @@ func (h *Handler) processFrameWithCV(frameData []byte, codecID flvtag.CodecID) (
 				return nil, err
 			}
 
-			// Process the frame with your CV library
+			// Process the frame with GoCV
 			processedFrame, err := h.applyComputerVision(frame)
 			if err != nil {
 				return nil, err

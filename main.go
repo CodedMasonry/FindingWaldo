@@ -20,7 +20,7 @@ func main() {
 		log.Panicf("Failed: %+v", err)
 	}
 
-	fmt.Printf("Listening on %s", tcpAddr)
+	fmt.Printf("Listening on %s\n", tcpAddr)
 
 	srv := rtmp.NewServer(&rtmp.ServerConfig{
 		OnConnect: func(conn net.Conn) (io.ReadWriteCloser, *rtmp.ConnConfig) {
