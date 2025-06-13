@@ -120,6 +120,21 @@ func (h *Handler) OnVideo(timestamp uint32, payload io.Reader) error {
 	if _, err := io.Copy(flvBody, video.Data); err != nil {
 		return err
 	}
+
+	// Only process certain frame types (typically keyframes)
+	// Check if this is a keyframe or a frame we want to process
+	if video.FrameType == flvtag.FrameTypeKeyFrame {
+		// Process the frame with computer vision
+		processedData, err := h.processFrameWithCV(flvBody.Bytes(), video.CodecID)
+		if err != nil {
+			log.Printf("Failed to process video frame: Err = %+v", err)
+			// Continue with original data if processing fails
+		} else {
+			// Replace with processed data
+			flvBody = bytes.NewBuffer(processedData)
+		}
+	}
+
 	video.Data = flvBody
 
 	if err := h.flvEnc.Encode(&flvtag.FlvTag{
@@ -139,4 +154,101 @@ func (h *Handler) OnClose() {
 	if h.flvFile != nil {
 		_ = h.flvFile.Close()
 	}
+}
+
+/*
+ *
+ * Computer Vision Functions
+ *
+ */
+
+// Process keyframe with Computer Vision
+func (h *Handler) processFrameWithCV(frameData []byte, codecID flvtag.CodecID) ([]byte, error) {
+	// For AVC/H.264
+	if codecID == flvtag.CodecIDAVC {
+		// Decode the AVC packet
+		var avc flvtag.AVCVideoPacket
+		if err := flvtag.DecodeAVCVideoPacket(bytes.NewReader(frameData), &avc); err != nil {
+			return nil, err
+		}
+
+		// Only process video data (not sequence headers)
+		if avc.AVCPacketType == flvtag.AVCPacketTypeNALU {
+			// Extract frame from NAL units
+			frame, err := h.extractFrameFromNALU(avc.Data)
+			if err != nil {
+				return nil, err
+			}
+
+			// Process the frame with your CV library
+			processedFrame, err := h.applyComputerVision(frame)
+			if err != nil {
+				return nil, err
+			}
+
+			// Repackage the processed frame into NALUs
+			processedNALU, err := h.packFrameToNALU(processedFrame)
+			if err != nil {
+				return nil, err
+			}
+
+			// Update the AVC packet with processed data
+			avc.Data = bytes.NewReader(processedNALU)
+
+			// Reserialize the AVC packet
+			avcBuffer := new(bytes.Buffer)
+			if err := flvtag.EncodeAVCVideoPacket(avcBuffer, &avc); err != nil {
+				return nil, err
+			}
+
+			return avcBuffer.Bytes(), nil
+		}
+	}
+
+	// Return original data for unhandled codecs or packet types
+	return frameData, nil
+}
+
+// Extract image frame from NAL units
+func (h *Handler) extractFrameFromNALU(naluData io.Reader) ([]byte, error) {
+	// This would use a codec library like OpenH264 to decode the H.264 NAL units into raw frame data
+	// Implementation depends on your specific codec library
+	// Example placeholder:
+	// return h.h264Decoder.DecodeNALU(naluData)
+
+	// For now, this is a placeholder
+	return io.ReadAll(naluData)
+}
+
+// Apply computer vision to the frame
+func (h *Handler) applyComputerVision(frameData []byte) ([]byte, error) {
+	// Convert frameData to an image format your CV library can work with
+	// For example, if using GoCV (OpenCV bindings for Go):
+	//
+	// img, err := gocv.IMDecode(frameData, gocv.IMReadUnchanged)
+	// if err != nil {
+	//     return nil, err
+	// }
+	// defer img.Close()
+	//
+	// Apply your CV operations, e.g.:
+	// gocv.CvtColor(img, &img, gocv.ColorBGRToGray)
+	// gocv.Canny(img, &img, 100, 200)
+	//
+	// Convert back to bytes:
+	// buf, err := gocv.IMEncode(".jpg", img)
+	// return buf.GetBytes(), err
+
+	// For now, this is a placeholder that returns the original data
+	return frameData, nil
+}
+
+// Pack processed frame back into NAL units
+func (h *Handler) packFrameToNALU(frameData []byte) ([]byte, error) {
+	// This would use a codec library to encode the raw frame back into H.264 NAL units
+	// Example placeholder:
+	// return h.h264Encoder.EncodeFrame(frameData)
+
+	// For now, this is a placeholder
+	return frameData, nil
 }

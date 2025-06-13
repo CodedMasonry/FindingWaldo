@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -18,6 +19,8 @@ func main() {
 	if err != nil {
 		log.Panicf("Failed: %+v", err)
 	}
+
+	fmt.Printf("Listening on %s", tcpAddr)
 
 	srv := rtmp.NewServer(&rtmp.ServerConfig{
 		OnConnect: func(conn net.Conn) (io.ReadWriteCloser, *rtmp.ConnConfig) {
